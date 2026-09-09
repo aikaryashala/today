@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNS resolution — mail.zoho.in in Ulaa</title>
+<style>
+:root{
+  --bg:#060a12;
+  --panel:#0c1322;
+  --panel-2:#111b2e;
+  --line:#1e2c47;
+  --ink:#dbe6f5;
+  --ink-dim:#7f92ad;
+  --query:#4dd8ff;
+  --referral:#ffb457;
+  --answer:#5ce39a;
+  --miss:#ff5d73;
+  --hit:#b98cff;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(900px 500px at 12% -8%, #10203a 0%, transparent 60%),
+    radial-gradient(700px 500px at 95% 8%, #1a1430 0%, transparent 55%),
+    var(--bg);
+  color:var(--ink); font-family:var(--sans); line-height:1.55;
+  padding:22px 18px 70px;
+}
+.wrap{max-width:1220px;margin:0 auto}
+
+header.top{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:20px}
+h1{font-size:clamp(22px,3.4vw,34px);margin:0 0 6px;letter-spacing:-.02em;font-weight:650}
+.sub{color:var(--ink-dim);max-width:66ch;margin:0}
+.urlbar{
+  display:flex;align-items:center;gap:10px;margin-top:16px;
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:8px 16px;font-family:var(--mono);font-size:13px;max-width:520px;
+}
+.urlbar .lock{color:var(--answer)}
+.urlbar .host{color:var(--query)}
+.urlbar .browser{margin-left:auto;color:var(--ink-dim);font-size:11px}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0}
+button{
+  font-family:var(--mono);font-size:12.5px;color:var(--ink);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  padding:9px 14px;cursor:pointer;transition:border-color .15s,background .15s;
+}
+button:hover{border-color:var(--query);background:#16253d}
+button:focus-visible{outline:2px solid var(--query);outline-offset:2px}
+button.primary{background:#123449;border-color:#2b6d8c;color:#cdf3ff}
+button.primary:hover{background:#17435f}
+button[aria-pressed="true"]{background:#1b2f22;border-color:var(--answer);color:#c6f6dc}
+button:disabled{opacity:.4;cursor:not-allowed}
+select{
+  font-family:var(--mono);font-size:12.5px;background:var(--panel-2);color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:9px 10px;
+}
+.ctl-label{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+
+.stage{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px}
+@media (max-width:980px){.stage{grid-template-columns:1fr}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h2{font-size:13px;margin:0 0 10px;font-weight:600;color:var(--ink-dim);font-family:var(--mono)}
+
+svg{width:100%;height:auto;display:block}
+.node rect{fill:var(--panel-2);stroke:var(--line);stroke-width:1.4;transition:stroke .25s,fill .25s}
+.node.active rect{stroke:var(--query);fill:#13253c}
+.node.hit rect{stroke:var(--answer);fill:#122a1f}
+.node.miss rect{stroke:var(--miss);fill:#2a1319}
+.node.bypassed rect{stroke-dasharray:4 4;opacity:.35}
+.node.bypassed text{opacity:.35}
+.n-title{fill:var(--ink);font:600 13px var(--sans)}
+.n-sub{fill:var(--ink-dim);font:11px var(--mono)}
+.n-badge{font:10px var(--mono)}
+.edge{fill:none;stroke:var(--line);stroke-width:1.6}
+.edge.doh{stroke-dasharray:5 5}
+.edge.lit{stroke:var(--query);stroke-width:2.4}
+.pkt-label{font:10.5px var(--mono);fill:#04121c}
+.zone-label{fill:#54678a;font:10px var(--mono)}
+
+.narration{min-height:210px}
+.step-no{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+.step-title{font-size:16px;font-weight:650;margin:4px 0 8px;letter-spacing:-.01em}
+.narration p{margin:0 0 9px;font-size:13.5px}
+.narration code{font-family:var(--mono);font-size:12px;background:#0a1526;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#a8d8ff}
+.msg{font-family:var(--mono);font-size:11.5px;background:#08111f;border:1px solid var(--line);border-left:3px solid var(--query);border-radius:6px;padding:9px 11px;margin-top:10px;white-space:pre-wrap;color:#9fc4e8}
+.msg.answer{border-left-color:var(--answer)}
+.msg.referral{border-left-color:var(--referral)}
+.tagline{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;margin-right:6px}
+.t-miss{background:#2a1319;color:#ff9aa8;border:1px solid #57202b}
+.t-hit{background:#12261f;color:#8ff0bb;border:1px solid #235640}
+.t-net{background:#101f33;color:#8fd4ff;border:1px solid #23507a}
+
+.caches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px}
+@media (max-width:900px){.caches{grid-template-columns:1fr}}
+.cache-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.cache-head h3{font-size:13.5px;margin:0;font-weight:650}
+.cache-head .scope{font-family:var(--mono);font-size:10px;color:var(--ink-dim);margin-left:auto}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+th{text-align:left;color:var(--ink-dim);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid #131f34;color:#b8cbe2;vertical-align:top;word-break:break-all}
+tr.fresh td{animation:flashIn .9s ease-out}
+tr.dying td{color:var(--miss)}
+@keyframes flashIn{from{background:#14382c}to{background:transparent}}
+.ttl{color:var(--answer)}
+.ttl.low{color:var(--referral)}
+.empty{color:#4d5f7a;font-family:var(--mono);font-size:11px;padding:10px 4px}
+.flush{margin-top:9px;font-size:11px;padding:6px 10px}
+
+.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+pre.cmds{font-family:var(--mono);font-size:11.5px;background:#08111f;border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;color:#9fc4e8;margin:0}
+.note{font-size:12.5px;color:var(--ink-dim);margin-top:10px}
+
+.quiz .q{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.quiz .q:first-of-type{border-top:none;padding-top:0;margin-top:0}
+.q-text{font-size:14px;font-weight:600;margin-bottom:9px}
+.opts{display:flex;flex-direction:column;gap:7px}
+.opt{text-align:left;font-family:var(--sans);font-size:13px;padding:9px 12px;line-height:1.4}
+.opt.right{background:#12281e;border-color:var(--answer);color:#c6f6dc}
+.opt.wrong{background:#2a1319;border-color:var(--miss);color:#ffc0c9}
+.explain{margin-top:9px;font-size:12.5px;color:#a9bdd6;border-left:2px solid var(--line);padding-left:11px}
+footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);color:#4d5f7a;font-size:12px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>What happens before the first byte of mail.zoho.in arrives</h1>
+  <p class="sub">Watch a name turn into an address: the query leaves Ulaa, walks the delegation chain from the root down to Zoho's own nameservers, and comes back — leaving a copy of itself in every cache it touches on the way home.</p>
+  <div class="urlbar">
+    <span class="lock">&#128274;</span>
+    <span>https://<span class="host">mail.zoho.in</span>/</span>
+    <span class="browser">Ulaa &middot; Chromium-based</span>
+  </div>
+</header>
+
+<div class="controls">
+  <button id="playBtn" class="primary">Play</button>
+  <button id="stepBtn">Step</button>
+  <button id="resetBtn">Reset</button>
+  <span class="ctl-label">Scenario</span>
+  <select id="scenario">
+    <option value="cold">Cold start — nothing cached</option>
+    <option value="warmOS">OS cache already has it</option>
+    <option value="warmBrowser">Ulaa cache already has it</option>
+  </select>
+  <button id="dohBtn" aria-pressed="false">Secure DNS (DoH): off</button>
+  <span class="ctl-label">Speed</span>
+  <select id="speed">
+    <option value="1600">Slow</option>
+    <option value="1000" selected>Normal</option>
+    <option value="450">Fast</option>
+  </select>
+  <button id="clockBtn" aria-pressed="false">TTL clock: 1&times;</button>
+</div>
+
+<div class="stage">
+  <div class="card">
+    <h2>Query path</h2>
+    <svg id="topo" viewBox="0 0 980 560" role="img" aria-label="Animated diagram of the DNS query path">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#2b3d5e"/>
+        </marker>
+      </defs>
+
+      <text class="zone-label" x="40" y="24">your machine</text>
+      <text class="zone-label" x="392" y="24">your resolver</text>
+      <text class="zone-label" x="752" y="24">the public delegation chain</text>
+
+      <!-- edges -->
+      <path id="e_bo" class="edge" d="M148,140 L148,206" marker-end="url(#arrow)"/>
+      <path id="e_or" class="edge" d="M258,258 C320,258 336,244 386,238" marker-end="url(#arrow)"/>
+      <path id="e_bd" class="edge doh" d="M258,104 C330,110 344,180 386,214" marker-end="url(#arrow)"/>
+      <path id="e_rroot" class="edge" d="M614,214 C676,190 700,104 744,88" marker-end="url(#arrow)"/>
+      <path id="e_rtld" class="edge" d="M614,238 L744,216" marker-end="url(#arrow)"/>
+      <path id="e_rauth" class="edge" d="M614,262 C676,290 700,326 744,342" marker-end="url(#arrow)"/>
+      <path id="e_bweb" class="edge" d="M180,312 C220,452 600,506 744,486" marker-end="url(#arrow)"/>
+
+      <!-- nodes -->
+      <g class="node" id="n_browser">
+        <rect x="40" y="40" width="218" height="100" rx="12"/>
+        <text class="n-title" x="58" y="70">Ulaa</text>
+        <text class="n-sub" x="58" y="90">in-process host cache</text>
+        <text class="n-sub" x="58" y="108">chrome://net-internals/#dns</text>
+        <text class="n-badge" id="b_browser" x="58" y="128"></text>
+      </g>
+
+      <g class="node" id="n_os">
+        <rect x="40" y="206" width="218" height="106" rx="12"/>
+        <text class="n-title" x="58" y="236">OS stub resolver</text>
+        <text class="n-sub" x="58" y="256">hosts file, then OS cache</text>
+        <text class="n-sub" x="58" y="274">systemd-resolved / dnscache</text>
+        <text class="n-badge" id="b_os" x="58" y="298"></text>
+      </g>
+
+      <g class="node" id="n_resolver">
+        <rect x="386" y="184" width="228" height="104" rx="12"/>
+        <text class="n-title" x="404" y="214">Recursive resolver</text>
+        <text class="n-sub" id="s_resolver" x="404" y="234">ISP / router / 8.8.8.8 &mdash; UDP 53</text>
+        <text class="n-sub" x="404" y="252">does the walking, keeps a cache</text>
+        <text class="n-badge" id="b_resolver" x="404" y="274"></text>
+      </g>
+
+      <g class="node" id="n_root">
+        <rect x="744" y="48" width="212" height="80" rx="12"/>
+        <text class="n-title" x="762" y="76">Root servers</text>
+        <text class="n-sub" x="762" y="96">"." &mdash; 13 anycast letters</text>
+        <text class="n-badge" id="b_root" x="762" y="116"></text>
+      </g>
+
+      <g class="node" id="n_tld">
+        <rect x="744" y="176" width="212" height="80" rx="12"/>
+        <text class="n-title" x="762" y="204">.in TLD servers</text>
+        <text class="n-sub" x="762" y="224">India's registry (NIXI)</text>
+        <text class="n-badge" id="b_tld" x="762" y="244"></text>
+      </g>
+
+      <g class="node" id="n_auth">
+        <rect x="744" y="302" width="212" height="80" rx="12"/>
+        <text class="n-title" x="762" y="330">zoho.in authoritative</text>
+        <text class="n-sub" x="762" y="350">Zoho's own nameservers</text>
+        <text class="n-badge" id="b_auth" x="762" y="370"></text>
+      </g>
+
+      <g class="node" id="n_web">
+        <rect x="744" y="446" width="212" height="80" rx="12"/>
+        <text class="n-title" x="762" y="474">mail.zoho.in host</text>
+        <text class="n-sub" x="762" y="494">TCP 443 &rarr; TLS &rarr; HTTP</text>
+        <text class="n-badge" id="b_web" x="762" y="514"></text>
+      </g>
+
+      <g id="packet" opacity="0">
+        <rect id="pkt_rect" x="-70" y="-13" width="140" height="26" rx="13" fill="#4dd8ff"/>
+        <text id="pkt_text" class="pkt-label" text-anchor="middle" y="4"></text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="card narration">
+    <h2>Step</h2>
+    <div class="step-no" id="stepNo">0 / 0</div>
+    <div class="step-title" id="stepTitle">Press Play</div>
+    <div id="stepBody"><p class="sub">The animation runs left to right and back again. Every cache write is mirrored in the three tables below, with its TTL ticking down live.</p></div>
+  </div>
+</div>
+
+<div class="caches">
+  <div class="card">
+    <div class="cache-head">
+      <h3>Ulaa host cache</h3>
+      <span class="scope">per browser process</span>
+    </div>
+    <table><thead><tr><th>Host</th><th>Address</th><th>Expires in</th></tr></thead>
+      <tbody id="tb_browser"></tbody></table>
+    <div id="em_browser" class="empty">empty</div>
+    <button class="flush" data-flush="browser">Clear this cache</button>
+  </div>
+
+  <div class="card">
+    <div class="cache-head">
+      <h3>OS DNS cache</h3>
+      <span class="scope">all apps on the machine</span>
+    </div>
+    <table><thead><tr><th>Host</th><th>Record</th><th>Expires in</th></tr></thead>
+      <tbody id="tb_os"></tbody></table>
+    <div id="em_os" class="empty">empty</div>
+    <button class="flush" data-flush="os">Clear this cache</button>
+  </div>
+
+  <div class="card">
+    <div class="cache-head">
+      <h3>Recursive resolver cache</h3>
+      <span class="scope">shared by every user of it</span>
+    </div>
+    <table><thead><tr><th>Name</th><th>Type</th><th>Value</th><th>TTL</th></tr></thead>
+      <tbody id="tb_res"></tbody></table>
+    <div id="em_res" class="empty">empty</div>
+    <button class="flush" data-flush="res">Clear this cache</button>
+  </div>
+</div>
+
+<div class="split">
+  <div class="card">
+    <h2>Clearing each cache for real</h2>
+<pre class="cmds">Ulaa / any Chromium browser
+  chrome://net-internals/#dns  &rarr; Clear host cache
+  chrome://net-internals/#sockets &rarr; Flush socket pools
+  (a Chromium fork may also answer on ulaa://net-internals/#dns)
+
+Windows
+  ipconfig /flushdns
+  ipconfig /displaydns
+
+Linux with systemd-resolved
+  resolvectl flush-caches
+  resolvectl statistics
+  resolvectl query mail.zoho.in
+
+macOS
+  sudo dscacheutil -flushcache
+  sudo killall -HUP mDNSResponder
+
+Recursive resolver (if it is yours)
+  rndc flush            # BIND
+  unbound-control flush mail.zoho.in</pre>
+    <p class="note">Order matters when you are debugging: clear the browser cache first, then the OS one. Flushing only the OS cache while Ulaa still holds the old address changes nothing for that tab.</p>
+  </div>
+
+  <div class="card">
+    <h2>Check the real chain yourself</h2>
+<pre class="cmds">dig +trace mail.zoho.in        # every referral, root downwards
+dig NS in.                     # who serves the .in zone
+dig NS zoho.in                 # Zoho's authoritative servers
+dig mail.zoho.in +noall +answer   # the record and its TTL
+dig mail.zoho.in @8.8.8.8      # ask one resolver directly
+
+# run it twice, a second apart, and watch the TTL fall:
+dig mail.zoho.in +noall +answer; sleep 1; dig mail.zoho.in +noall +answer
+
+nslookup mail.zoho.in          # Windows equivalent</pre>
+    <p class="note">The addresses and nameserver names in this animation are illustrative. The TTL you see falling in a real <code>dig</code> is the resolver telling you how much of its own countdown is left — which is exactly what your OS then copies into its cache.</p>
+  </div>
+</div>
+
+<div class="card quiz" style="margin-top:16px">
+  <h2>Check yourself</h2>
+  <div id="quiz"></div>
+</div>
+
+<footer>Single-file visualizer. No network access, no dependencies — it runs from disk.</footer>
+</div>
+
+<script>
+"use strict";
+
+/* ---------------- data ---------------- */
+const IP = "136.143.190.61";
+const TTL_A = 300, TTL_NS_IN = 172800, TTL_NS_ZOHO = 86400, TTL_BROWSER = 60;
+
+const nodes = ["browser","os","resolver","root","tld","auth","web"];
+const nodeEl = {};
+const badgeEl = {};
+nodes.forEach(n=>{ nodeEl[n]=document.getElementById("n_"+n); badgeEl[n]=document.getElementById("b_"+n); });
+
+const state = {
+  steps:[], i:-1, playing:false, animating:false, doh:false,
+  clockMult:1, speed:1000,
+  caches:{ browser:[], os:[], res:[] }
+};
+
+function mk(o){ return Object.assign({edge:null,dir:1,pkt:"",color:"query",nodeState:{},effects:[]}, o); }
+
+function buildSteps(scn, doh){
+  const S = [];
+  const dohNote = doh
+    ? `<p><span class="tagline t-net">DoH on</span>Ulaa is resolving names itself over HTTPS, so the operating system's resolver and its cache are skipped entirely.</p>` : "";
+
+  S.push(mk({
+    title:"You press Enter on https://mail.zoho.in",
+    body:`<p>Ulaa splits the URL first. Scheme <code>https</code> fixes the port at 443. The host label <code>mail.zoho.in</code> is the only part DNS cares about — the path, the query string and the fragment never leave your machine as part of a DNS query.</p>
+          <p>Read the name right to left: <code>.</code> (root) &rarr; <code>in</code> &rarr; <code>zoho</code> &rarr; <code>mail</code>. That is the order the lookup will follow.</p>
+          <div class="msg">Question section
+  QNAME  mail.zoho.in.
+  QTYPE  A        (AAAA is asked for in parallel)
+  QCLASS IN</div>`,
+    nodeState:{browser:"active"}
+  }));
+
+  if (scn === "warmBrowser") {
+    S.push(mk({
+      title:"Ulaa's own cache answers",
+      body:`<p><span class="tagline t-hit">hit</span>The address is still in Ulaa's in-process host cache and has not expired, so no packet is generated at all. Not by the browser, not by the OS.</p>
+            <p>This is why a page can keep loading from a stale address minutes after you have changed a DNS record and flushed the OS cache.</p>`,
+      nodeState:{browser:"hit"}, badges:{browser:"HIT"}
+    }));
+    S.push(connectStep());
+    return S;
+  }
+
+  S.push(mk({
+    title:"Ulaa checks its own host cache — miss",
+    body:`<p><span class="tagline t-miss">miss</span>Chromium keeps a small host cache inside the browser process, visible at <code>chrome://net-internals/#dns</code>. It is not the OS cache and it survives nothing: closing the browser empties it.</p>
+          <p>Entries expire on the record's TTL when Ulaa resolves names itself. When the answer comes back through the OS resolver, no TTL is reported, so Chromium falls back to a short fixed lifetime of about a minute.</p>${dohNote}`,
+    nodeState:{browser:"miss"}, badges:{browser:"MISS"}
+  }));
+
+  if (!doh) {
+    S.push(mk({
+      edge:"e_bo", dir:1, pkt:"getaddrinfo()", color:"query",
+      title:"Ulaa hands the name to the OS stub resolver",
+      body:`<p>This is a library call, not a network packet. The stub resolver on your machine is what actually knows which servers to ask — it read that from DHCP when you joined the network.</p>
+            <p>On Linux, <code>/etc/nsswitch.conf</code> decides the order it consults sources; on Windows the DNS Client service does the same job.</p>`,
+      nodeState:{os:"active"}
+    }));
+    S.push(mk({
+      title:"Hosts file, then the OS cache",
+      body:`<p>The static file is checked first: <code>/etc/hosts</code> on Linux and macOS, <code>C:\\Windows\\System32\\drivers\\etc\\hosts</code> on Windows. No entry for <code>mail.zoho.in</code>, so the lookup continues.</p>
+            <p>${scn==="warmOS" ? '<span class="tagline t-hit">hit</span>The OS cache still holds the record from an earlier lookup, so the answer is returned without a single packet leaving the machine.' : '<span class="tagline t-miss">miss</span>The OS cache is empty for this name too. A packet now has to leave your machine.'}</p>`,
+      nodeState:{os: scn==="warmOS" ? "hit":"miss"}, badges:{os: scn==="warmOS"?"HIT":"MISS"}
+    }));
+    if (scn === "warmOS") {
+      S.push(mk({
+        edge:"e_bo", dir:-1, pkt:"A "+IP, color:"answer",
+        title:"Answer returns, and Ulaa caches a copy",
+        body:`<p>The OS returns the address it already had, with whatever TTL is left on it — not the original 300. Ulaa writes that into its own cache, so the same name is now held in two places with two different countdowns.</p>`,
+        nodeState:{browser:"hit"},
+        effects:[["browser", {host:"mail.zoho.in", val:IP, ttl:TTL_BROWSER}]]
+      }));
+      S.push(connectStep());
+      return S;
+    }
+  }
+
+  S.push(mk({
+    edge: doh ? "e_bd" : "e_or", dir:1,
+    pkt: doh ? "POST /dns-query" : "query RD=1",
+    color:"query",
+    title: doh ? "Ulaa sends the query itself, over HTTPS" : "The stub asks the recursive resolver",
+    body: doh
+      ? `<p>With DNS over HTTPS the query is wrapped in a normal HTTPS request to a resolver endpoint on port 443. To anything watching the wire it is indistinguishable from other web traffic, and the OS resolver never sees it.</p>
+         <p>The consequence for debugging: <code>ipconfig /flushdns</code> or <code>resolvectl flush-caches</code> will not touch this lookup at all. Only the browser's own cache matters.</p>
+         <div class="msg">POST /dns-query HTTP/2
+Host: (configured DoH resolver)
+Content-Type: application/dns-message
+&lt;wire-format query for mail.zoho.in A&gt;</div>`
+      : `<p>A UDP datagram to port 53 on the resolver your DHCP lease named — the home router, the campus resolver, or a public one you configured. The recursion-desired bit is what says "do the whole job for me and hand me the final answer".</p>
+         <div class="msg">DNS header
+  ID    0x8f21
+  QR    0  (query)
+  RD    1  (recursion desired)
+  RA    -
+  QDCOUNT 1</div>`,
+    nodeState:{resolver:"active"}
+  }));
+
+  S.push(mk({
+    title:"The resolver's cache is empty for this name",
+    body:`<p><span class="tagline t-miss">miss</span>Nothing for <code>mail.zoho.in</code>, nothing for <code>zoho.in</code>, nothing for <code>in</code>. The only thing it starts with is the root hints file — the addresses of the thirteen root server letters, shipped with the software.</p>
+          <p>Everything from here is <em>iterative</em>: the resolver asks, gets pointed somewhere better, and asks again. The root never fetches an answer on its behalf.</p>`,
+    nodeState:{resolver:"miss"}, badges:{resolver:"MISS"}
+  }));
+
+  S.push(mk({
+    edge:"e_rroot", dir:1, pkt:"mail.zoho.in A?", color:"query",
+    title:"Ask a root server",
+    body:`<p>The resolver sends the full name, not just the last label. Root servers do not know about <code>zoho</code> — they only know who runs each top-level domain.</p>`,
+    nodeState:{root:"active"}
+  }));
+
+  S.push(mk({
+    edge:"e_rroot", dir:-1, pkt:"referral: .in NS", color:"referral",
+    title:"Root replies with a referral, not an answer",
+    body:`<p>The answer section is empty and <code>AA=0</code>. What comes back is the authority section: the nameservers for the <code>in</code> zone, plus glue records giving their addresses so the resolver doesn't need a second lookup to find them.</p>
+          <div class="msg referral">;; ANSWER: 0   AUTHORITY: 4   ADDITIONAL: 4
+in.  172800  IN  NS  ns1.registry.in.
+in.  172800  IN  NS  ns2.registry.in.   (illustrative names)</div>
+          <p>That two-day TTL is why the root gets asked about <code>.in</code> so rarely.</p>`,
+    nodeState:{root:"hit"}, badges:{root:"referral"},
+    effects:[["res",{host:"in.", type:"NS", val:"ns1.registry.in.", ttl:TTL_NS_IN}]]
+  }));
+
+  S.push(mk({
+    edge:"e_rtld", dir:1, pkt:"mail.zoho.in A?", color:"query",
+    title:"Ask the .in registry servers",
+    body:`<p>Same question, one level lower. The <code>.in</code> servers hold the delegation records for every second-level domain registered under India's TLD.</p>`,
+    nodeState:{tld:"active"}
+  }));
+
+  S.push(mk({
+    edge:"e_rtld", dir:-1, pkt:"referral: zoho.in NS", color:"referral",
+    title:"Another referral — now to Zoho's nameservers",
+    body:`<p>Still not an answer. The registry hands over the NS records that Zoho set when it registered the domain. This is the delegation boundary: below it, the registry has no data.</p>
+          <div class="msg referral">zoho.in.  86400  IN  NS  ns1.zoho.com.
+zoho.in.  86400  IN  NS  ns2.zoho.com.   (illustrative names)</div>`,
+    nodeState:{tld:"hit"}, badges:{tld:"referral"},
+    effects:[["res",{host:"zoho.in.", type:"NS", val:"ns1.zoho.com.", ttl:TTL_NS_ZOHO}]]
+  }));
+
+  S.push(mk({
+    edge:"e_rauth", dir:1, pkt:"mail.zoho.in A?", color:"query",
+    title:"Ask the authoritative server for zoho.in",
+    body:`<p>Third time, same question. This server holds the actual zone file, so it can answer from its own data rather than pointing anywhere else.</p>`,
+    nodeState:{auth:"active"}
+  }));
+
+  S.push(mk({
+    edge:"e_rauth", dir:-1, pkt:"A "+IP+" TTL 300", color:"answer",
+    title:"An authoritative answer, at last",
+    body:`<p><span class="tagline t-hit">AA=1</span>The authoritative-answer bit is set, and the answer section carries the record with the TTL the zone owner chose. A short TTL like 300 seconds is a deliberate choice: it lets Zoho move the service quickly, at the cost of more queries.</p>
+          <div class="msg answer">;; flags: qr aa rd; ANSWER: 1
+mail.zoho.in.  300  IN  A  ${IP}
+(illustrative address — confirm with dig)</div>
+          <p>If the zone used a CNAME instead, the resolver would get an alias here and start a fresh lookup for the target name before it had anything to return.</p>`,
+    nodeState:{auth:"hit"}, badges:{auth:"AA=1"},
+    effects:[["res",{host:"mail.zoho.in.", type:"A", val:IP, ttl:TTL_A}]]
+  }));
+
+  S.push(mk({
+    edge: doh ? "e_bd" : "e_or", dir:-1,
+    pkt: doh ? "200 OK · dns-message" : "answer RA=1",
+    color:"answer",
+    title: doh ? "The DoH response comes straight back to Ulaa" : "The resolver answers your machine",
+    body:`<p>The resolver has now cached three things at three different lifetimes: the root's referral to <code>.in</code> for two days, the delegation to Zoho's nameservers for a day, and the address itself for five minutes. The next person on this resolver who asks for anything under <code>zoho.in</code> skips straight to the last step.</p>
+          <p>The TTL it forwards is its own <em>remaining</em> countdown, not the original 300. Ask a busy public resolver for a popular name and you will often see a TTL of 40 or 12 — that is the shared copy ageing.</p>
+          ${doh ? '<p>Because the query never went through the OS resolver, the OS cache below stays empty.</p>' : ''}`,
+    nodeState:{resolver:"hit"}, badges:{resolver:"cached"}
+  }));
+
+  if (!doh) {
+    S.push(mk({
+      edge:"e_bo", dir:-1, pkt:"A "+IP, color:"answer",
+      title:"The OS cache writes the entry",
+      body:`<p>The stub resolver stores the record and starts its own countdown from the TTL it was handed. Every application on the machine now benefits — a mail client hitting the same host will not generate a query.</p>
+            <p>This is the cache that <code>ipconfig /flushdns</code> and <code>resolvectl flush-caches</code> empty. Watch the countdown in the middle table.</p>`,
+      nodeState:{os:"hit"}, badges:{os:"cached"},
+      effects:[["os",{host:"mail.zoho.in", type:"A "+IP, ttl:TTL_A}]]
+    }));
+  }
+
+  S.push(mk({
+    title:"Ulaa writes its own copy",
+    body:`<p>The browser keeps its result independently of the OS. Two caches, two countdowns, and the browser's is usually the shorter of the two — which is why an address can disappear from Ulaa and still sit in the OS cache for minutes afterwards.</p>
+          <p>${doh ? 'With DoH on this is the <em>only</em> cache holding the record on your machine.' : 'Now both tables below are populated, from the same lookup, with different lifetimes.'}</p>
+          <p>Chromium also keeps a socket pool keyed to this address, so even after the cache entry expires an already-open connection keeps being used.</p>`,
+    nodeState:{browser:"hit"}, badges:{browser:"cached"},
+    effects:[["browser",{host:"mail.zoho.in", val:IP, ttl:TTL_BROWSER}]]
+  }));
+
+  S.push(connectStep());
+
+  S.push(mk({
+    title:"The second visit costs nothing",
+    body:`<p><span class="tagline t-hit">hit</span>Reload the page inside the next minute and step one answers it. No packet on port 53, no HTTPS query, nothing.</p>
+          <p>Let the browser TTL run out and the next lookup stops one level down at the OS cache. Let that expire too and it reaches the resolver — which still has the delegation cached, so it asks one server instead of three. Caches degrade in layers, not all at once.</p>
+          <p>Try it: press the TTL clock button to run time 60&times; faster and watch the three tables empty in that order.</p>`,
+    nodeState:{browser:"hit"}, badges:{browser:"HIT"}
+  }));
+
+  return S;
+}
+
+function connectStep(){
+  return mk({
+    edge:"e_bweb", dir:1, pkt:"SYN &rarr; "+IP+":443", color:"query",
+    title:"DNS is done — now the actual connection",
+    body:`<p>Everything so far was to learn one number. Ulaa opens a TCP connection to <code>${IP}:443</code>, completes the TLS handshake with <code>mail.zoho.in</code> in the SNI field, and only then sends <code>GET /</code>.</p>
+          <p>The name reappears twice after DNS finishes: in the TLS SNI extension, so the server knows which certificate to present, and in the HTTP <code>Host</code> header. One IP can serve many names, which is why both are needed.</p>
+          <div class="msg">TCP  SYN &rarr; SYN-ACK &rarr; ACK
+TLS  ClientHello  server_name = mail.zoho.in
+HTTP :method GET  :authority mail.zoho.in</div>`,
+    nodeState:{web:"active"}, badges:{web:"connected"}
+  });
+}
+
+/* ---------------- rendering ---------------- */
+const colorMap = {query:"#4dd8ff", referral:"#ffb457", answer:"#5ce39a"};
+const pkt = document.getElementById("packet");
+const pktRect = document.getElementById("pkt_rect");
+const pktText = document.getElementById("pkt_text");
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function clearVisuals(){
+  nodes.forEach(n=>{ nodeEl[n].classList.remove("active","hit","miss"); badgeEl[n].textContent=""; });
+  document.querySelectorAll(".edge").forEach(e=>e.classList.remove("lit"));
+}
+
+function applyStep(st){
+  clearVisuals();
+  Object.entries(st.nodeState||{}).forEach(([n,c])=>nodeEl[n].classList.add(c));
+  Object.entries(st.badges||{}).forEach(([n,t])=>{
+    badgeEl[n].textContent = t;
+    badgeEl[n].setAttribute("fill", /MISS/.test(t) ? "#ff5d73" : "#5ce39a");
+  });
+  document.getElementById("stepNo").textContent = (state.i+1)+" / "+state.steps.length;
+  document.getElementById("stepTitle").textContent = st.title;
+  document.getElementById("stepBody").innerHTML = st.body;
+  (st.effects||[]).forEach(([c,rec])=>addCache(c, rec));
+}
+
+function animateEdge(st){
+  return new Promise(res=>{
+    if(!st.edge){ pkt.setAttribute("opacity","0"); return res(); }
+    const path = document.getElementById(st.edge);
+    path.classList.add("lit");
+    const len = path.getTotalLength();
+    const dur = reduced ? 1 : state.speed;
+    const w = Math.max(90, st.pkt.replace(/&\w+;/g,"x").length*7.4);
+    pktRect.setAttribute("width", w);
+    pktRect.setAttribute("x", -w/2);
+    pktRect.setAttribute("fill", colorMap[st.color]);
+    pktText.innerHTML = st.pkt;
+    pkt.setAttribute("opacity","1");
+    const t0 = performance.now();
+    (function frame(now){
+      let p = Math.min(1,(now-t0)/dur);
+      const e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+      const at = st.dir===1 ? e*len : (1-e)*len;
+      const pt = path.getPointAtLength(at);
+      pkt.setAttribute("transform","translate("+pt.x+","+pt.y+")");
+      if(p<1) requestAnimationFrame(frame);
+      else { setTimeout(()=>{pkt.setAttribute("opacity","0"); res();}, 160); }
+    })(t0);
+  });
+}
+
+async function goToStep(k){
+  if(state.animating || k>=state.steps.length) return false;
+  state.animating = true;
+  state.i = k;
+  const st = state.steps[k];
+  applyStep(st);
+  await animateEdge(st);
+  state.animating = false;
+  return true;
+}
+
+/* ---------------- caches ---------------- */
+function addCache(which, rec){
+  const list = state.caches[which];
+  const key = rec.host + "|" + (rec.type||"");
+  const existing = list.find(r=>r.key===key);
+  if(existing){ existing.ttl = rec.ttl; existing.fresh = true; }
+  else list.push(Object.assign({key, fresh:true}, rec));
+  renderCaches();
+}
+
+function fmtTTL(s){
+  if(s>=86400) return Math.floor(s/86400)+"d "+Math.floor((s%86400)/3600)+"h";
+  if(s>=3600) return Math.floor(s/3600)+"h "+Math.floor((s%3600)/60)+"m";
+  if(s>=60) return Math.floor(s/60)+"m "+(s%60)+"s";
+  return s+"s";
+}
+
+function renderCaches(){
+  renderOne("browser","tb_browser","em_browser", r=>[r.host, r.val]);
+  renderOne("os","tb_os","em_os", r=>[r.host, r.type]);
+  renderOne("res","tb_res","em_res", r=>[r.host, r.type, r.val]);
+}
+function renderOne(which, tbId, emId, cols){
+  const tb = document.getElementById(tbId), em = document.getElementById(emId);
+  const list = state.caches[which];
+  tb.innerHTML = "";
+  em.style.display = list.length ? "none" : "block";
+  list.forEach(r=>{
+    const tr = document.createElement("tr");
+    if(r.fresh){ tr.className="fresh"; r.fresh=false; }
+    if(r.ttl<=15) tr.classList.add("dying");
+    cols(r).forEach(c=>{ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); });
+    const td = document.createElement("td");
+    td.className = "ttl" + (r.ttl<=30 ? " low":"");
+    td.textContent = fmtTTL(r.ttl);
+    tr.appendChild(td);
+    tb.appendChild(tr);
+  });
+}
+
+setInterval(()=>{
+  let changed=false;
+  Object.keys(state.caches).forEach(k=>{
+    const before = state.caches[k].length;
+    state.caches[k].forEach(r=>{ r.ttl -= state.clockMult; });
+    state.caches[k] = state.caches[k].filter(r=>r.ttl>0);
+    if(state.caches[k].length!==before) changed=true;
+  });
+  if(state.caches.browser.length||state.caches.os.length||state.caches.res.length||changed) renderCaches();
+},1000);
+
+/* ---------------- controls ---------------- */
+const playBtn=document.getElementById("playBtn"), stepBtn=document.getElementById("stepBtn"),
+      resetBtn=document.getElementById("resetBtn"), scnSel=document.getElementById("scenario"),
+      dohBtn=document.getElementById("dohBtn"), speedSel=document.getElementById("speed"),
+      clockBtn=document.getElementById("clockBtn");
+
+function rebuild(){
+  state.steps = buildSteps(scnSel.value, state.doh);
+  state.i = -1; state.playing=false;
+  playBtn.textContent="Play";
+  clearVisuals();
+  state.caches = {browser:[],os:[],res:[]};
+  if(scnSel.value==="warmBrowser") state.caches.browser=[{key:"mail.zoho.in|",host:"mail.zoho.in",val:IP,ttl:44}];
+  if(scnSel.value==="warmOS") state.caches.os=[{key:"mail.zoho.in|A",host:"mail.zoho.in",type:"A "+IP,ttl:212}];
+  if(scnSel.value!=="cold") state.caches.res=[{key:"mail.zoho.in.|A",host:"mail.zoho.in.",type:"A",val:IP,ttl:212}];
+  renderCaches();
+  nodeEl.os.classList.toggle("bypassed", state.doh);
+  document.getElementById("s_resolver").textContent = state.doh
+    ? "DoH endpoint — HTTPS 443" : "ISP / router / 8.8.8.8 — UDP 53";
+  document.getElementById("stepNo").textContent = "0 / "+state.steps.length;
+  document.getElementById("stepTitle").textContent = "Press Play";
+  document.getElementById("stepBody").innerHTML = '<p class="sub">The animation runs left to right and back again. Every cache write is mirrored in the three tables below, with its TTL ticking down live.</p>';
+}
+
+async function runLoop(){
+  while(state.playing && state.i+1 < state.steps.length){
+    await goToStep(state.i+1);
+    if(!state.playing) break;
+    await new Promise(r=>setTimeout(r, reduced?300:state.speed*0.9));
+  }
+  state.playing=false; playBtn.textContent = (state.i+1>=state.steps.length) ? "Replay" : "Play";
+  if(state.i+1>=state.steps.length && playBtn.textContent==="Replay"){ /* keep caches */ }
+}
+
+playBtn.addEventListener("click", ()=>{
+  if(state.playing){ state.playing=false; playBtn.textContent="Play"; return; }
+  if(state.i+1>=state.steps.length) rebuild();
+  state.playing=true; playBtn.textContent="Pause"; runLoop();
+});
+stepBtn.addEventListener("click", ()=>{ state.playing=false; playBtn.textContent="Play"; goToStep(state.i+1); });
+resetBtn.addEventListener("click", rebuild);
+scnSel.addEventListener("change", rebuild);
+dohBtn.addEventListener("click", ()=>{
+  state.doh=!state.doh;
+  dohBtn.setAttribute("aria-pressed", String(state.doh));
+  dohBtn.textContent = "Secure DNS (DoH): " + (state.doh?"on":"off");
+  rebuild();
+});
+speedSel.addEventListener("change", e=>state.speed=+e.target.value);
+clockBtn.addEventListener("click", ()=>{
+  state.clockMult = state.clockMult===1 ? 60 : 1;
+  clockBtn.setAttribute("aria-pressed", String(state.clockMult!==1));
+  clockBtn.textContent = "TTL clock: "+state.clockMult+"\u00d7";
+});
+document.querySelectorAll("[data-flush]").forEach(b=>{
+  b.addEventListener("click", ()=>{ state.caches[b.dataset.flush]=[]; renderCaches(); });
+});
+
+/* ---------------- quiz ---------------- */
+const QUIZ = [
+  {q:"You change the A record for mail.zoho.in and run ipconfig /flushdns, but Ulaa still loads the old server. What is the most likely reason?",
+   o:["The authoritative server has not been updated yet","Ulaa's own host cache still holds the previous address","The root servers cache A records for two days","TCP refuses to reconnect to a new address"],
+   a:1, e:"The browser cache is separate from the OS cache. Clear it at chrome://net-internals/#dns — and if a connection is already open, the socket pool may keep using it even after the entry is gone."},
+
+  {q:"The root server's reply to \"mail.zoho.in A?\" contains which of these?",
+   o:["The A record, with AA=1","Nothing — root servers only answer for single-label names","NS records for the .in zone, with an empty answer section","A CNAME pointing at zoho.com"],
+   a:2, e:"Roots delegate rather than answer. The answer section is empty, AA=0, and the authority section names the .in servers with glue addresses in the additional section."},
+
+  {q:"Your resolver returns mail.zoho.in with a TTL of 47 seconds, even though the zone sets 300. Why?",
+   o:["The resolver overrode the zone owner's value","47 seconds is what remains of the resolver's own cached copy","The record was truncated in transit","Public resolvers always cap TTLs at 60"],
+   a:1, e:"A caching resolver counts down and hands you what is left. Somebody else asked for the same name 253 seconds ago and you are reading their copy."},
+
+  {q:"With DNS over HTTPS enabled in the browser, which cache stops being involved?",
+   o:["The browser's host cache","The OS DNS cache","The recursive resolver's cache","The authoritative server's zone file"],
+   a:1, e:"The browser builds and sends the query itself over port 443, so the stub resolver never sees it. Flushing the OS cache then has no effect on that browser's lookups."},
+
+  {q:"Which TTL in this lookup is the longest, and what does it buy?",
+   o:["The A record's 300s — it keeps the mail server reachable","The .in NS records' 172800s — the root is rarely re-queried","The browser cache's 60s — it makes reloads instant","All records in a zone share one TTL"],
+   a:1, e:"Delegation records are stable and get long TTLs, so the root is contacted rarely. Service records get short ones so the operator can move things quickly."},
+
+  {q:"After DNS finishes, where does the name mail.zoho.in still appear?",
+   o:["Nowhere — only the IP is used from here on","In the TLS ClientHello SNI field and the HTTP Host header","Only in the TCP header","In the ARP request for the destination"],
+   a:1, e:"One address can host many sites. SNI tells the server which certificate to present during the handshake, and the Host header tells it which site to serve."}
+];
+
+const quizEl = document.getElementById("quiz");
+QUIZ.forEach((item,qi)=>{
+  const d=document.createElement("div"); d.className="q";
+  const t=document.createElement("div"); t.className="q-text"; t.textContent=(qi+1)+". "+item.q; d.appendChild(t);
+  const box=document.createElement("div"); box.className="opts";
+  const exp=document.createElement("div"); exp.className="explain"; exp.style.display="none"; exp.textContent=item.e;
+  item.o.forEach((opt,oi)=>{
+    const b=document.createElement("button"); b.className="opt"; b.textContent=opt;
+    b.addEventListener("click",()=>{
+      box.querySelectorAll("button").forEach((x,xi)=>{
+        x.disabled=true;
+        if(xi===item.a) x.classList.add("right");
+        else if(xi===oi) x.classList.add("wrong");
+      });
+      exp.style.display="block";
+    });
+    box.appendChild(b);
+  });
+  d.appendChild(box); d.appendChild(exp); quizEl.appendChild(d);
+});
+
+rebuild();
+</script>
+</body>
+</html>
