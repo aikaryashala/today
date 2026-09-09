@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Basics</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      line-height: 1.6;
+      color: #2C2C2A;
+      background: #FAFAF7;
+    }
+    h1 { font-size: 28px; margin: 0 0 0.5rem; }
+    h2 { font-size: 20px; margin: 2rem 0 0.75rem; color: #3C3489; }
+    .intro { color: #5F5E5A; margin-bottom: 2rem; }
+
+    .anatomy {
+      background: #fff;
+      border: 1px solid #E5E5E0;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .anatomy-code {
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 18px;
+      margin: 1rem 0;
+      line-height: 1.6;
+    }
+    .kw { color: #534AB7; font-weight: 600; }
+    .col { color: #0F6E56; }
+    .tbl { color: #D85A30; }
+    .val { color: #993556; }
+    .op { color: #888780; }
+
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+    .pill { font-size: 12px; padding: 3px 10px; border-radius: 6px; font-weight: 500; }
+    .pill-kw { background: #EEEDFE; color: #3C3489; }
+    .pill-col { background: #E1F5EE; color: #085041; }
+    .pill-tbl { background: #FAEEDA; color: #633806; }
+    .pill-cond { background: #FBEAF0; color: #72243E; }
+
+    .example {
+      background: #fff;
+      border: 1px solid #E5E5E0;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .example-title {
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 14px;
+      color: #534AB7;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+    .example-desc {
+      font-size: 13px;
+      color: #5F5E5A;
+      margin: 0 0 12px;
+    }
+    .code-block {
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 13px;
+      background: #F1EFE8;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin: 0 0 10px;
+      white-space: pre-wrap;
+      color: #444441;
+    }
+    .result-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888780;
+      margin: 0 0 6px;
+    }
+    .result {
+      padding: 12px;
+      background: #FAFAF7;
+      border-radius: 6px;
+      border: 1px solid #E5E5E0;
+      overflow-x: auto;
+    }
+    .note {
+      background: #E6F1FB;
+      border-left: 3px solid #185FA5;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-top: 2rem;
+      color: #0C447C;
+      font-size: 14px;
+    }
+
+    table.sql-table {
+      border-collapse: collapse;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 13px;
+      background: #fff;
+      min-width: 260px;
+    }
+    table.sql-table th, table.sql-table td {
+      border: 1px solid #D3D1C7;
+      padding: 6px 12px;
+      text-align: left;
+    }
+    table.sql-table th {
+      background: #F1EFE8;
+      color: #3C3489;
+      font-weight: 600;
+    }
+    table.sql-table tbody tr:nth-child(even) { background: #FAFAF7; }
+
+    .table-label {
+      font-size: 12px;
+      color: #5F5E5A;
+      margin: 0 0 6px;
+      font-weight: 500;
+    }
+    .tables-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .vocab {
+      background: #fff;
+      border: 1px solid #E5E5E0;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+    .vocab dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: minmax(140px, 180px) 1fr;
+      gap: 10px 20px;
+    }
+    .vocab dt {
+      font-weight: 600;
+      color: #534AB7;
+      font-size: 14px;
+    }
+    .vocab dd {
+      margin: 0;
+      font-size: 14px;
+      color: #444441;
+      line-height: 1.5;
+    }
+    .vocab dd code {
+      background: #F1EFE8;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    @media (max-width: 560px) {
+      .vocab dl { grid-template-columns: 1fr; gap: 4px 0; }
+      .vocab dt { margin-top: 10px; }
+      .vocab dt:first-child { margin-top: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SQL — The Basics</h1>
+  <p class="intro">A quick visual reference for the SQL query language. Every example shows the query and the resulting table.</p>
+
+  <h2>Anatomy of a query</h2>
+  <div class="anatomy">
+    <div class="anatomy-code">
+      <span class="kw">SELECT</span> <span class="col">name, age</span> <span class="kw">FROM</span> <span class="tbl">users</span> <span class="kw">WHERE</span> <span class="col">age</span> <span class="op">&gt;</span> <span class="val">25</span><span class="op">;</span>
+    </div>
+    <div class="pills">
+      <span class="pill pill-kw">keyword</span>
+      <span class="pill pill-col">column</span>
+      <span class="pill pill-tbl">table</span>
+      <span class="pill pill-cond">condition</span>
+    </div>
+  </div>
+
+  <h2>Our sample tables</h2>
+  <p style="color:#5F5E5A; margin-top:-0.5rem;">All the examples below run against these two tables.</p>
+  <div class="tables-row">
+    <div>
+      <p class="table-label">users</p>
+      <table class="sql-table">
+        <thead><tr><th>id</th><th>name</th><th>age</th><th>city</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Lakshmi</td><td>30</td><td>Visakhapatnam</td></tr>
+          <tr><td>2</td><td>Ramesh</td><td>25</td><td>Vijayawada</td></tr>
+          <tr><td>3</td><td>Padma</td><td>35</td><td>Visakhapatnam</td></tr>
+          <tr><td>4</td><td>Venkatesh</td><td>28</td><td>Guntur</td></tr>
+          <tr><td>5</td><td>Anjali</td><td>42</td><td>Vijayawada</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <p class="table-label">orders</p>
+      <table class="sql-table">
+        <thead><tr><th>id</th><th>user_id</th><th>amount</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>1</td><td>100</td></tr>
+          <tr><td>2</td><td>1</td><td>150</td></tr>
+          <tr><td>3</td><td>2</td><td>200</td></tr>
+          <tr><td>4</td><td>3</td><td>75</td></tr>
+          <tr><td>5</td><td>3</td><td>300</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Reading data — SELECT</h2>
+
+  <div class="example">
+    <p class="example-title">SELECT * — all columns</p>
+    <p class="example-desc">The asterisk <code>*</code> means "every column". Use it when you want to see everything.</p>
+    <div class="code-block">SELECT * FROM users;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>id</th><th>name</th><th>age</th><th>city</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Lakshmi</td><td>30</td><td>Visakhapatnam</td></tr>
+          <tr><td>2</td><td>Ramesh</td><td>25</td><td>Vijayawada</td></tr>
+          <tr><td>3</td><td>Padma</td><td>35</td><td>Visakhapatnam</td></tr>
+          <tr><td>4</td><td>Venkatesh</td><td>28</td><td>Guntur</td></tr>
+          <tr><td>5</td><td>Anjali</td><td>42</td><td>Vijayawada</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">SELECT — specific columns</p>
+    <p class="example-desc">Name the columns you want, separated by commas.</p>
+    <div class="code-block">SELECT name, city FROM users;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>city</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td><td>Visakhapatnam</td></tr>
+          <tr><td>Ramesh</td><td>Vijayawada</td></tr>
+          <tr><td>Padma</td><td>Visakhapatnam</td></tr>
+          <tr><td>Venkatesh</td><td>Guntur</td></tr>
+          <tr><td>Anjali</td><td>Vijayawada</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Filtering rows — WHERE</h2>
+
+  <div class="example">
+    <p class="example-title">WHERE — basic condition</p>
+    <p class="example-desc">Keeps only the rows that match the condition.</p>
+    <div class="code-block">SELECT name, age FROM users
+WHERE age &gt; 30;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>age</th></tr></thead>
+        <tbody>
+          <tr><td>Padma</td><td>35</td></tr>
+          <tr><td>Anjali</td><td>42</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">AND / OR — combining conditions</p>
+    <p class="example-desc">Chain conditions with <code>AND</code> (both must be true) or <code>OR</code> (either true).</p>
+    <div class="code-block">SELECT name FROM users
+WHERE city = 'Visakhapatnam' AND age &gt; 30;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th></tr></thead>
+        <tbody>
+          <tr><td>Padma</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">IN — match any value in a list</p>
+    <p class="example-desc">A cleaner alternative to chaining many OR conditions.</p>
+    <div class="code-block">SELECT name, city FROM users
+WHERE city IN ('Visakhapatnam', 'Guntur');</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>city</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td><td>Visakhapatnam</td></tr>
+          <tr><td>Padma</td><td>Visakhapatnam</td></tr>
+          <tr><td>Venkatesh</td><td>Guntur</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">LIKE — pattern matching</p>
+    <p class="example-desc">Use <code>%</code> as a wildcard (any characters) and <code>_</code> for a single character.</p>
+    <div class="code-block">SELECT name FROM users
+WHERE name LIKE 'L%';</div>
+    <p class="result-label">Result — names starting with "L"</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">BETWEEN — range check</p>
+    <p class="example-desc">Inclusive on both ends.</p>
+    <div class="code-block">SELECT name, age FROM users
+WHERE age BETWEEN 25 AND 30;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>age</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td><td>30</td></tr>
+          <tr><td>Ramesh</td><td>25</td></tr>
+          <tr><td>Venkatesh</td><td>28</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Sorting and limiting — ORDER BY, LIMIT</h2>
+
+  <div class="example">
+    <p class="example-title">ORDER BY — sort the results</p>
+    <p class="example-desc">Default is ascending (<code>ASC</code>). Use <code>DESC</code> for descending.</p>
+    <div class="code-block">SELECT name, age FROM users
+ORDER BY age DESC;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>age</th></tr></thead>
+        <tbody>
+          <tr><td>Anjali</td><td>42</td></tr>
+          <tr><td>Padma</td><td>35</td></tr>
+          <tr><td>Lakshmi</td><td>30</td></tr>
+          <tr><td>Venkatesh</td><td>28</td></tr>
+          <tr><td>Ramesh</td><td>25</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">LIMIT — cap the number of rows</p>
+    <p class="example-desc">Useful for previews or top-N queries.</p>
+    <div class="code-block">SELECT name, age FROM users
+ORDER BY age DESC
+LIMIT 2;</div>
+    <p class="result-label">Result — top 2 oldest</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>age</th></tr></thead>
+        <tbody>
+          <tr><td>Anjali</td><td>42</td></tr>
+          <tr><td>Padma</td><td>35</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>DISTINCT — unique values</h2>
+
+  <div class="example">
+    <p class="example-title">DISTINCT — remove duplicates</p>
+    <p class="example-desc">Returns only unique values for the selected column(s).</p>
+    <div class="code-block">SELECT DISTINCT city FROM users;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>city</th></tr></thead>
+        <tbody>
+          <tr><td>Visakhapatnam</td></tr>
+          <tr><td>Vijayawada</td></tr>
+          <tr><td>Guntur</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Aggregates — summarizing data</h2>
+
+  <div class="example">
+    <p class="example-title">COUNT, SUM, AVG, MIN, MAX</p>
+    <p class="example-desc">Aggregate functions collapse many rows into a single value.</p>
+    <div class="code-block">SELECT
+  COUNT(*) AS total_users,
+  AVG(age) AS average_age,
+  MAX(age) AS oldest
+FROM users;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>total_users</th><th>average_age</th><th>oldest</th></tr></thead>
+        <tbody>
+          <tr><td>5</td><td>32</td><td>42</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>GROUP BY — aggregating by category</h2>
+
+  <div class="example">
+    <p class="example-title">GROUP BY</p>
+    <p class="example-desc">Groups rows that share a value, then applies an aggregate to each group.</p>
+    <div class="code-block">SELECT city, COUNT(*) AS user_count
+FROM users
+GROUP BY city;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>city</th><th>user_count</th></tr></thead>
+        <tbody>
+          <tr><td>Visakhapatnam</td><td>2</td></tr>
+          <tr><td>Vijayawada</td><td>2</td></tr>
+          <tr><td>Guntur</td><td>1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">HAVING — filter on aggregates</p>
+    <p class="example-desc"><code>WHERE</code> filters rows; <code>HAVING</code> filters groups after aggregation.</p>
+    <div class="code-block">SELECT city, COUNT(*) AS user_count
+FROM users
+GROUP BY city
+HAVING COUNT(*) &gt; 1;</div>
+    <p class="result-label">Result — only cities with more than one user</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>city</th><th>user_count</th></tr></thead>
+        <tbody>
+          <tr><td>Visakhapatnam</td><td>2</td></tr>
+          <tr><td>Vijayawada</td><td>2</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>JOIN — combining tables</h2>
+
+  <div class="example">
+    <p class="example-title">INNER JOIN</p>
+    <p class="example-desc">Returns rows where the join key matches in both tables. Venkatesh (id=4) and Anjali (id=5) are left out because they have no orders.</p>
+    <div class="code-block">SELECT users.name, orders.amount
+FROM users
+INNER JOIN orders ON users.id = orders.user_id;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>amount</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td><td>100</td></tr>
+          <tr><td>Lakshmi</td><td>150</td></tr>
+          <tr><td>Ramesh</td><td>200</td></tr>
+          <tr><td>Padma</td><td>75</td></tr>
+          <tr><td>Padma</td><td>300</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">LEFT JOIN</p>
+    <p class="example-desc">Returns every row from the left table, with <code>NULL</code>s where no match exists on the right.</p>
+    <div class="code-block">SELECT users.name, orders.amount
+FROM users
+LEFT JOIN orders ON users.id = orders.user_id;</div>
+    <p class="result-label">Result — Venkatesh and Anjali appear with NULL amounts</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>amount</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td><td>100</td></tr>
+          <tr><td>Lakshmi</td><td>150</td></tr>
+          <tr><td>Ramesh</td><td>200</td></tr>
+          <tr><td>Padma</td><td>75</td></tr>
+          <tr><td>Padma</td><td>300</td></tr>
+          <tr><td>Venkatesh</td><td><em style="color:#888780;">NULL</em></td></tr>
+          <tr><td>Anjali</td><td><em style="color:#888780;">NULL</em></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">JOIN + GROUP BY — spend per user</p>
+    <p class="example-desc">Combining tables then summarizing is one of SQL's most common patterns.</p>
+    <div class="code-block">SELECT users.name, SUM(orders.amount) AS total
+FROM users
+INNER JOIN orders ON users.id = orders.user_id
+GROUP BY users.name;</div>
+    <p class="result-label">Result</p>
+    <div class="result">
+      <table class="sql-table">
+        <thead><tr><th>name</th><th>total</th></tr></thead>
+        <tbody>
+          <tr><td>Lakshmi</td><td>250</td></tr>
+          <tr><td>Ramesh</td><td>200</td></tr>
+          <tr><td>Padma</td><td>375</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Aliases — renaming for clarity</h2>
+
+  <div class="example">
+    <p class="example-title">AS — give columns or tables a nickname</p>
+    <p class="example-desc">Shortens queries and makes output labels clearer.</p>
+    <div class="code-block">SELECT u.name AS customer, o.amount AS spent
+FROM users AS u
+INNER JOIN orders AS o ON u.id = o.user_id;</div>
+  </div>
+
+  <h2>Changing data — INSERT, UPDATE, DELETE</h2>
+
+  <div class="example">
+    <p class="example-title">INSERT — add a new row</p>
+    <p class="example-desc">Specify the columns, then the matching values.</p>
+    <div class="code-block">INSERT INTO users (name, age, city)
+VALUES ('Suresh', 29, 'Tirupati');</div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">UPDATE — change existing rows</p>
+    <p class="example-desc"><strong>Always include a WHERE clause</strong> — otherwise, every row gets updated.</p>
+    <div class="code-block">UPDATE users
+SET city = 'Kakinada'
+WHERE name = 'Ramesh';</div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">DELETE — remove rows</p>
+    <p class="example-desc">Same warning as UPDATE — a missing WHERE deletes every row.</p>
+    <div class="code-block">DELETE FROM users
+WHERE age &lt; 26;</div>
+  </div>
+
+  <h2>Creating structure — CREATE TABLE</h2>
+
+  <div class="example">
+    <p class="example-title">CREATE TABLE</p>
+    <p class="example-desc">Defines a new table with its columns and their data types. Constraints like <code>PRIMARY KEY</code> and <code>NOT NULL</code> control what's allowed.</p>
+    <div class="code-block">CREATE TABLE products (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  price DECIMAL(10, 2),
+  created_at TIMESTAMP DEFAULT NOW()
+);</div>
+  </div>
+
+  <div class="example">
+    <p class="example-title">Common data types</p>
+    <p class="example-desc">Exact names vary slightly between databases, but these concepts are universal.</p>
+    <div class="code-block">INTEGER       -- whole numbers
+DECIMAL(p,s)  -- exact decimals (money)
+TEXT / VARCHAR -- strings
+BOOLEAN       -- true/false
+DATE          -- calendar date
+TIMESTAMP     -- date and time</div>
+  </div>
+
+  <h2>NULL — the absence of a value</h2>
+
+  <div class="example">
+    <p class="example-title">IS NULL / IS NOT NULL</p>
+    <p class="example-desc"><code>NULL</code> means "unknown". You can't compare it with <code>=</code> — use <code>IS NULL</code> instead.</p>
+    <div class="code-block">SELECT * FROM orders
+WHERE user_id IS NOT NULL;</div>
+  </div>
+
+  <div class="note">
+    <strong>Tip:</strong> SQL keywords like <code>SELECT</code>, <code>WHERE</code>, and <code>JOIN</code> are not case-sensitive — <code>select</code> works just as well. Uppercase is a common convention that makes queries easier to read. End every statement with a semicolon.
+  </div>
+
+  <h2>Vocabulary</h2>
+  <div class="vocab">
+    <dl>
+      <dt>SQL</dt>
+      <dd>Structured Query Language — the standard language for reading and managing data in relational databases.</dd>
+
+      <dt>Database</dt>
+      <dd>An organized collection of data, usually stored on a server and accessed through queries.</dd>
+
+      <dt>Relational database</dt>
+      <dd>A database that stores data in tables linked by common fields. Examples: PostgreSQL, MySQL, SQLite.</dd>
+
+      <dt>Table</dt>
+      <dd>A grid of data made up of rows and columns. The basic unit of storage in SQL.</dd>
+
+      <dt>Row</dt>
+      <dd>A single record in a table. Also called a tuple.</dd>
+
+      <dt>Column</dt>
+      <dd>A named field that every row in a table shares. Also called an attribute.</dd>
+
+      <dt>Field</dt>
+      <dd>The intersection of a row and a column — a single cell of data.</dd>
+
+      <dt>Schema</dt>
+      <dd>The definition of a database's structure: tables, columns, data types, and relationships.</dd>
+
+      <dt>Query</dt>
+      <dd>A SQL statement that asks the database to do something — usually read data.</dd>
+
+      <dt>Statement</dt>
+      <dd>A complete SQL command, typically ending with a semicolon.</dd>
+
+      <dt>Clause</dt>
+      <dd>A section of a query introduced by a keyword, like <code>WHERE</code>, <code>ORDER BY</code>, or <code>GROUP BY</code>.</dd>
+
+      <dt>Keyword</dt>
+      <dd>A word reserved by SQL for a specific purpose, like <code>SELECT</code> or <code>FROM</code>.</dd>
+
+      <dt>SELECT</dt>
+      <dd>The clause that specifies which columns to return.</dd>
+
+      <dt>FROM</dt>
+      <dd>The clause that names the table(s) the data comes from.</dd>
+
+      <dt>WHERE</dt>
+      <dd>Filters rows based on a condition before any aggregation.</dd>
+
+      <dt>ORDER BY</dt>
+      <dd>Sorts the result rows by one or more columns.</dd>
+
+      <dt>ASC / DESC</dt>
+      <dd>Sort direction — ascending (default) or descending.</dd>
+
+      <dt>LIMIT</dt>
+      <dd>Caps the number of rows returned.</dd>
+
+      <dt>DISTINCT</dt>
+      <dd>Removes duplicate rows from the result.</dd>
+
+      <dt>Wildcard</dt>
+      <dd>A placeholder character used in pattern matching. <code>%</code> matches any sequence; <code>_</code> matches a single character.</dd>
+
+      <dt>LIKE</dt>
+      <dd>The operator for pattern matching on text using wildcards.</dd>
+
+      <dt>IN</dt>
+      <dd>Operator that checks whether a value is in a given list.</dd>
+
+      <dt>BETWEEN</dt>
+      <dd>Operator that checks whether a value falls in a range (inclusive).</dd>
+
+      <dt>AND / OR</dt>
+      <dd>Logical operators for combining conditions in a <code>WHERE</code> clause.</dd>
+
+      <dt>NOT</dt>
+      <dd>Reverses a condition — <code>NOT IN</code>, <code>NOT LIKE</code>, <code>IS NOT NULL</code>.</dd>
+
+      <dt>NULL</dt>
+      <dd>Represents missing or unknown data. Compared with <code>IS NULL</code>, never with <code>=</code>.</dd>
+
+      <dt>Aggregate function</dt>
+      <dd>A function that collapses multiple rows into one value, like <code>COUNT</code>, <code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>.</dd>
+
+      <dt>COUNT</dt>
+      <dd>Counts rows. <code>COUNT(*)</code> counts all; <code>COUNT(col)</code> counts non-NULL values.</dd>
+
+      <dt>SUM</dt>
+      <dd>Adds up the numeric values in a column.</dd>
+
+      <dt>AVG</dt>
+      <dd>Computes the average of a numeric column.</dd>
+
+      <dt>MIN / MAX</dt>
+      <dd>Returns the smallest or largest value in a column.</dd>
+
+      <dt>GROUP BY</dt>
+      <dd>Groups rows sharing a value so an aggregate can be computed per group.</dd>
+
+      <dt>HAVING</dt>
+      <dd>Filters groups after <code>GROUP BY</code>, similar to how <code>WHERE</code> filters rows.</dd>
+
+      <dt>Alias</dt>
+      <dd>A temporary name for a column or table, given with <code>AS</code>.</dd>
+
+      <dt>JOIN</dt>
+      <dd>Combines rows from two or more tables based on a related column.</dd>
+
+      <dt>INNER JOIN</dt>
+      <dd>Returns only rows where the join condition matches in both tables.</dd>
+
+      <dt>LEFT JOIN</dt>
+      <dd>Returns every row from the left table, plus matches from the right (<code>NULL</code> if none).</dd>
+
+      <dt>RIGHT JOIN</dt>
+      <dd>Mirror of <code>LEFT JOIN</code> — keeps every row from the right table.</dd>
+
+      <dt>FULL JOIN</dt>
+      <dd>Keeps every row from both tables, with <code>NULL</code>s where there's no match.</dd>
+
+      <dt>ON</dt>
+      <dd>The keyword that introduces a join's matching condition.</dd>
+
+      <dt>Foreign key</dt>
+      <dd>A column that refers to the primary key of another table, linking the two.</dd>
+
+      <dt>Primary key</dt>
+      <dd>A column (or set of columns) that uniquely identifies each row in a table.</dd>
+
+      <dt>Unique</dt>
+      <dd>A constraint ensuring every value in a column is different.</dd>
+
+      <dt>NOT NULL</dt>
+      <dd>A constraint that forbids <code>NULL</code> values in a column.</dd>
+
+      <dt>DEFAULT</dt>
+      <dd>A constraint that assigns a value automatically when none is provided.</dd>
+
+      <dt>Constraint</dt>
+      <dd>A rule that limits what values a column can hold.</dd>
+
+      <dt>Data type</dt>
+      <dd>The kind of value a column stores — integer, text, date, boolean, etc.</dd>
+
+      <dt>INSERT</dt>
+      <dd>The statement for adding new rows to a table.</dd>
+
+      <dt>UPDATE</dt>
+      <dd>The statement for changing values in existing rows.</dd>
+
+      <dt>DELETE</dt>
+      <dd>The statement for removing rows from a table.</dd>
+
+      <dt>CREATE TABLE</dt>
+      <dd>The statement that defines a new table and its columns.</dd>
+
+      <dt>DROP TABLE</dt>
+      <dd>The statement that deletes a table and all its data.</dd>
+
+      <dt>ALTER TABLE</dt>
+      <dd>Changes the structure of an existing table — adding, removing, or modifying columns.</dd>
+
+      <dt>Index</dt>
+      <dd>A data structure that speeds up lookups on a column, at the cost of slower writes.</dd>
+
+      <dt>Transaction</dt>
+      <dd>A group of statements treated as a single unit — all succeed or all are undone.</dd>
+
+      <dt>Semicolon</dt>
+      <dd>The standard end-of-statement character in SQL.</dd>
+
+      <dt>Comment</dt>
+      <dd>Non-executed text, written with <code>--</code> for a single line or <code>/* ... */</code> for multiple lines.</dd>
+    </dl>
+  </div>
+
+</body>
+</html>

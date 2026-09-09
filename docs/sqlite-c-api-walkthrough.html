@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Querying SQLite from C — what you actually see</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#faf6ef; --ink:#2b2622; --muted:#6f675e;
+  --rust:#b8430a; --teal:#14746f; --gold:#a97b12;
+  --line:rgba(43,38,34,.14); --line2:rgba(43,38,34,.07);
+  --paper:#fffdf9;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--cream); color:var(--ink);
+  font-family:"Inter Tight",system-ui,sans-serif; font-size:16px; line-height:1.6;
+  background-image:radial-gradient(rgba(43,38,34,.055) 1px, transparent 1px);
+  background-size:4px 4px;
+}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 22px 80px}
+header{margin-bottom:34px;border-bottom:1px solid var(--line);padding-bottom:22px}
+h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(28px,4.4vw,42px);line-height:1.12;margin:0 0 10px;letter-spacing:-.01em}
+.sub{color:var(--muted);max-width:62ch;margin:0}
+.sql{font-family:"JetBrains Mono",monospace;font-size:13.5px;color:var(--rust);margin-top:14px}
+
+.stage{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:22px;align-items:start}
+@media(max-width:860px){.stage{grid-template-columns:1fr}}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:2px}
+.panel h2{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;color:var(--muted);
+  margin:0;padding:9px 14px;border-bottom:1px solid var(--line2);letter-spacing:.04em}
+.panel .body{padding:12px 14px}
+
+pre.code{margin:0;padding:12px 8px;font-family:"JetBrains Mono",monospace;font-size:12.6px;line-height:1.75;overflow-x:auto}
+.ln{display:block;padding:1px 10px;border-left:2px solid transparent;white-space:pre}
+.ln.on{background:rgba(184,67,10,.09);border-left-color:var(--rust)}
+.cm{color:var(--muted)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.slot{border:1px solid var(--line2);border-radius:2px;padding:9px 11px;background:rgba(43,38,34,.02)}
+.slot .k{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--muted)}
+.slot .v{font-family:"JetBrains Mono",monospace;font-size:13px;margin-top:3px}
+.v.live{color:var(--teal);font-weight:500}
+.v.dead{color:var(--muted)}
+.v.warn{color:var(--rust)}
+
+.rc{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;
+  padding:4px 10px;border-radius:2px;border:1px solid}
+.rc.ok{color:var(--teal);border-color:rgba(20,116,111,.4);background:rgba(20,116,111,.07)}
+.rc.row{color:var(--rust);border-color:rgba(184,67,10,.4);background:rgba(184,67,10,.08)}
+.rc.done{color:var(--gold);border-color:rgba(169,123,18,.4);background:rgba(169,123,18,.08)}
+.rc.none{color:var(--muted);border-color:var(--line);background:transparent}
+
+table.db{width:100%;border-collapse:collapse;font-family:"JetBrains Mono",monospace;font-size:12.5px}
+table.db th{text-align:left;font-weight:500;color:var(--muted);font-size:10.5px;padding:4px 8px;border-bottom:1px solid var(--line2)}
+table.db td{padding:5px 8px;border-bottom:1px solid var(--line2)}
+tr.r{transition:background .25s,opacity .25s}
+tr.r.cur td{background:rgba(184,67,10,.1)}
+tr.r.cur td:first-child{box-shadow:inset 2px 0 0 var(--rust)}
+tr.r.skip{opacity:.34}
+tr.r.skip td:first-child{box-shadow:inset 2px 0 0 var(--line)}
+.tag{font-size:10px;color:var(--muted)}
+.tag.hand{color:var(--rust)}
+.tag.skipped{color:var(--muted)}
+
+.term{background:#2b2622;color:#f3ece1;font-family:"JetBrains Mono",monospace;font-size:12.5px;
+  padding:12px 14px;border-radius:2px;min-height:74px;line-height:1.75}
+.term .p{color:#8c8478}
+
+.controls{display:flex;align-items:center;gap:10px;margin:26px 0 14px;flex-wrap:wrap}
+button{font-family:"Inter Tight",sans-serif;font-size:14px;color:var(--ink);background:var(--paper);
+  border:1px solid var(--line);border-radius:2px;padding:8px 14px;cursor:pointer;transition:background .15s}
+button:hover{background:#f3ece1}
+button:focus-visible{outline:2px solid var(--rust);outline-offset:2px}
+#play{min-width:104px;font-weight:500}
+.count{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);margin-left:auto}
+.track{height:2px;background:var(--line2);margin-bottom:18px}
+.track span{display:block;height:2px;background:var(--rust);transition:width .3s}
+
+.note{font-size:16.5px;line-height:1.62;max-width:70ch;min-height:82px;margin:0 0 26px}
+.note b{font-weight:500;color:var(--rust)}
+.note code{font-family:"JetBrains Mono",monospace;font-size:.88em;background:rgba(43,38,34,.06);padding:1px 4px}
+
+h3.sec{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:24px;margin:52px 0 14px}
+.rules{border-top:1px solid var(--line);padding-top:6px}
+.rule{display:grid;grid-template-columns:170px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--line2)}
+@media(max-width:640px){.rule{grid-template-columns:1fr;gap:4px}}
+.rule .c{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--rust)}
+.rule .d{color:var(--ink);font-size:15px}
+
+.q{border:1px solid var(--line);border-radius:2px;background:var(--paper);padding:16px 18px;margin-bottom:12px}
+.q p{margin:0 0 12px;font-weight:500}
+.opt{display:block;width:100%;text-align:left;margin-bottom:7px;font-size:14.5px}
+.opt.right{border-color:var(--teal);background:rgba(20,116,111,.09);color:var(--teal)}
+.opt.wrong{border-color:var(--rust);background:rgba(184,67,10,.08);color:var(--rust)}
+.exp{display:none;font-size:14.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:12px;margin-top:10px}
+.exp.show{display:block}
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{.controls,.track{display:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Querying SQLite from C</h1>
+  <p class="sub">Six library calls, one row at a time. This walkthrough stays on the caller's side of the fence: what you pass in, what comes back, and when each handle is safe to use. Nothing about how the database stores anything.</p>
+  <div class="sql">SELECT name, marks FROM students WHERE marks &gt; 80;</div>
+</header>
+
+<div class="stage">
+  <div class="panel">
+    <h2>query.c</h2>
+    <pre class="code" id="code"></pre>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="panel">
+      <h2>what the last call returned</h2>
+      <div class="body">
+        <span class="rc none" id="rc">—</span>
+        <div class="grid2" style="margin-top:12px">
+          <div class="slot"><div class="k">db</div><div class="v dead" id="hdb">not opened</div></div>
+          <div class="slot"><div class="k">st</div><div class="v dead" id="hst">not prepared</div></div>
+          <div class="slot"><div class="k">name</div><div class="v dead" id="vname">—</div></div>
+          <div class="slot"><div class="k">marks</div><div class="v dead" id="vmarks">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>school.db &rarr; students</h2>
+      <div class="body" style="padding:6px 8px 8px">
+        <table class="db">
+          <thead><tr><th>id</th><th>name</th><th>marks</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>terminal</h2>
+      <div class="body" style="padding:0">
+        <div class="term" id="term"><span class="p">$ ./query</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="prev">&larr; Back</button>
+  <button id="play">Play</button>
+  <button id="next">Forward &rarr;</button>
+  <span class="count" id="count"></span>
+</div>
+<div class="track"><span id="bar" style="width:0%"></span></div>
+<p class="note" id="note"></p>
+
+<h3 class="sec">The six calls</h3>
+<div class="rules" id="rules"></div>
+
+<h3 class="sec">Check yourself</h3>
+<div id="quiz"></div>
+
+<footer>Use the arrow keys to step. Built for AI Karyashala.</footer>
+</div>
+
+<script>
+var CODE = [
+ 'sqlite3      *db;',
+ 'sqlite3_stmt *st;',
+ '',
+ 'sqlite3_open("school.db", &db);',
+ '',
+ 'sqlite3_prepare_v2(db,',
+ '    "SELECT name, marks FROM students"',
+ '    " WHERE marks > 80;",',
+ '    -1, &st, NULL);',
+ '',
+ 'while (sqlite3_step(st) == SQLITE_ROW) {',
+ '    const char *name = sqlite3_column_text(st, 0);',
+ '    int marks        = sqlite3_column_int(st, 1);',
+ '    printf("%s scored %d\\n", name, marks);',
+ '}',
+ '',
+ 'sqlite3_finalize(st);',
+ 'sqlite3_close(db);'
+];
+
+var ROWS = [['1','Asha','92'],['2','Ravi','74'],['3','Meera','88']];
+
+var S = [
+ {l:[], note:'Right now <code>school.db</code> is a file sitting on disk and your program has not touched it. There is no server to start and no port to connect to — SQLite is a library that gets linked into your executable, so every call below is an ordinary function call inside your own process.'},
+ {l:[3], rc:'ok', db:'open', note:'<b>sqlite3_open</b> gives you a connection handle. Everything after this is done through <code>db</code>. It returns <code>SQLITE_OK</code>, and you should check that — passing a broken handle onward is how beginners get mysterious crashes three lines later.'},
+ {l:[5,6,7,8], rc:'ok', db:'open', st:'ready', note:'<b>sqlite3_prepare_v2</b> takes your SQL as a plain string and hands back a statement handle. Notice what has <i>not</i> happened: no rows yet. Preparing only gets the query ready to run.'},
+ {l:[10], rc:'row', db:'open', st:'ready', cur:0, hand:[0], note:'<b>sqlite3_step</b> runs the query far enough to produce one row, then stops. The return value <code>SQLITE_ROW</code> is SQLite saying "there is a row waiting for you". This is why the loop condition is a function call, not a counter.'},
+ {l:[11], rc:'row', db:'open', st:'ready', cur:0, hand:[0], name:'"Asha"', note:'<b>sqlite3_column_text</b> reads column 0 of the row you are currently parked on. Columns are numbered from 0 in the order you wrote them in the SELECT, not in the order they appear in the table.'},
+ {l:[12], rc:'row', db:'open', st:'ready', cur:0, hand:[0], name:'"Asha"', marks:'92', note:'<b>sqlite3_column_int</b> reads column 1. You choose the type by choosing the function — <code>_int</code>, <code>_double</code>, <code>_text</code> — and SQLite converts if it can.'},
+ {l:[13], rc:'row', db:'open', st:'ready', cur:0, hand:[0], name:'"Asha"', marks:'92', out:['Asha scored 92'], note:'Your <code>printf</code> runs. One trip round the loop has produced exactly one line of output.'},
+ {l:[10], rc:'row', db:'open', st:'ready', cur:2, hand:[0,2], skip:[1], note:'The loop calls <b>step</b> again and gets the next matching row. Ravi scored 74, so he never arrives — the <code>WHERE</code> filter is applied inside the database, not by your C code. Your loop only ever sees rows that already qualify.'},
+ {l:[11,12], rc:'row', db:'open', st:'ready', cur:2, hand:[0,2], skip:[1], name:'"Meera"', marks:'88', note:'Same two reads, now against the row you are parked on. The column indexes never change; only the row underneath does.'},
+ {l:[13], rc:'row', db:'open', st:'ready', cur:2, hand:[0,2], skip:[1], name:'"Meera"', marks:'88', out:['Asha scored 92','Meera scored 88'], note:'Second line printed.'},
+ {l:[10], rc:'done', db:'open', st:'used', skip:[1], hand:[0,2], out:['Asha scored 92','Meera scored 88'], note:'<b>step</b> returns <code>SQLITE_DONE</code>: no rows left. The condition <code>== SQLITE_ROW</code> fails and the loop ends. <code>SQLITE_DONE</code> is a normal ending, not an error.'},
+ {l:[16], rc:'ok', db:'open', st:'freed', skip:[1], hand:[0,2], out:['Asha scored 92','Meera scored 88'], note:'<b>sqlite3_finalize</b> releases the statement. The <code>name</code> pointer you got from <code>column_text</code> belonged to that statement and is now dangling — if you needed the string later, you had to <code>strcpy</code> it while the row was still current.', deadvars:true},
+ {l:[17], rc:'ok', db:'closed', st:'freed', skip:[1], hand:[0,2], out:['Asha scored 92','Meera scored 88'], note:'<b>sqlite3_close</b> ends the session. The file is exactly as it was — this was a read. Forgetting either finalize or close is the most common leak in beginner SQLite code, and it can leave the database locked against writers.', deadvars:true}
+];
+
+var codeEl=document.getElementById('code'), tbody=document.getElementById('tbody');
+CODE.forEach(function(l,i){
+  var s=document.createElement('span'); s.className='ln'; s.id='c'+i;
+  s.textContent = l===''?' ':l; codeEl.appendChild(s);
+});
+ROWS.forEach(function(r,i){
+  var tr=document.createElement('tr'); tr.className='r'; tr.id='r'+i;
+  tr.innerHTML='<td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td class="tag" id="g'+i+'"></td>';
+  tbody.appendChild(tr);
+});
+
+var HAND={open:['live','valid'],closed:['dead','closed'],ready:['live','ready'],
+          used:['dead','exhausted'],freed:['dead','freed']};
+var RCTXT={ok:'SQLITE_OK',row:'SQLITE_ROW',done:'SQLITE_DONE'};
+
+var i=0,timer=null;
+function set(id,val,cls){var e=document.getElementById(id);e.textContent=val;e.className='v '+cls;}
+
+function render(){
+  var s=S[i];
+  for(var k=0;k<CODE.length;k++)
+    document.getElementById('c'+k).classList.toggle('on', s.l.indexOf(k)>=0);
+
+  var rc=document.getElementById('rc');
+  rc.className='rc '+(s.rc||'none'); rc.textContent=s.rc?RCTXT[s.rc]:'—';
+
+  var d=s.db?HAND[s.db]:['dead','not opened'];
+  var t=s.st?HAND[s.st]:['dead','not prepared'];
+  set('hdb',d[1],d[0]); set('hst',t[1],t[0]);
+  set('vname', s.name||'—', s.name?(s.deadvars?'warn':'live'):'dead');
+  set('vmarks', s.marks||'—', s.marks?'live':'dead');
+  if(s.deadvars){set('vname','dangling','warn');set('vmarks','88','dead');}
+
+  for(var k=0;k<ROWS.length;k++){
+    var tr=document.getElementById('r'+k), tag=document.getElementById('g'+k);
+    tr.classList.toggle('cur', s.cur===k);
+    tr.classList.toggle('skip', (s.skip||[]).indexOf(k)>=0);
+    if((s.skip||[]).indexOf(k)>=0){tag.textContent='filtered out';tag.className='tag skipped';}
+    else if((s.hand||[]).indexOf(k)>=0){tag.textContent=s.cur===k?'current row':'seen';tag.className='tag hand';}
+    else {tag.textContent='';tag.className='tag';}
+  }
+
+  var term='<span class="p">$ ./query</span>';
+  (s.out||[]).forEach(function(o){term+='<br>'+o;});
+  if(s.db==='closed')term+='<br><span class="p">$</span>';
+  document.getElementById('term').innerHTML=term;
+
+  document.getElementById('note').innerHTML=s.note;
+  document.getElementById('count').textContent='step '+(i+1)+' / '+S.length;
+  document.getElementById('bar').style.width=((i+1)/S.length*100)+'%';
+}
+function stop(){if(timer){clearInterval(timer);timer=null;}document.getElementById('play').textContent='Play';}
+function go(n){stop();i=(n+S.length)%S.length;render();}
+document.getElementById('next').onclick=function(){go(i+1)};
+document.getElementById('prev').onclick=function(){go(i-1)};
+document.getElementById('play').onclick=function(){
+  if(timer){stop();return;}
+  if(i===S.length-1)i=0;
+  document.getElementById('play').textContent='Pause'; render();
+  timer=setInterval(function(){
+    if(i>=S.length-1){stop();return;}
+    i++;render();
+  },3400);
+};
+document.addEventListener('keydown',function(e){
+  if(e.key==='ArrowRight'){go(i+1);e.preventDefault();}
+  if(e.key==='ArrowLeft'){go(i-1);e.preventDefault();}
+});
+
+var RULES=[
+ ['sqlite3_open','Opens a connection to the file and gives you a <code>db</code> handle. Creates the file if it is missing.'],
+ ['sqlite3_prepare_v2','Turns SQL text into a ready statement. Prepare once, run many times — this is also where you put <code>?</code> placeholders instead of pasting values into the string.'],
+ ['sqlite3_step','Runs the statement until the next row. Returns <code>SQLITE_ROW</code> when a row is waiting and <code>SQLITE_DONE</code> when there are none left.'],
+ ['sqlite3_column_*','Reads one column of the row you are currently on. Index from 0, in SELECT order. Pointers from <code>_text</code> and <code>_blob</code> are only valid until the next <code>step</code>.'],
+ ['sqlite3_finalize','Releases the statement. Every prepare needs a matching finalize.'],
+ ['sqlite3_close','Ends the session. Fails if statements are still un-finalized.']
+];
+var rulesEl=document.getElementById('rules');
+RULES.forEach(function(r){
+  var d=document.createElement('div'); d.className='rule';
+  d.innerHTML='<div class="c">'+r[0]+'</div><div class="d">'+r[1]+'</div>';
+  rulesEl.appendChild(d);
+});
+
+var QUIZ=[
+ {q:'The table has three rows but the loop printed only two. Where did Ravi get filtered out?',
+  o:['Inside the database, before step returned','In the printf format string','The while loop skipped him','column_int returned 0 for him'],a:0,
+  e:'The WHERE clause is evaluated by SQLite. Your loop only ever receives rows that already match, which is why filtering in SQL beats filtering in C.'},
+ {q:'sqlite3_step returns SQLITE_DONE. What does that mean?',
+  o:['The query failed','The connection dropped','There are no more rows — normal end','The row is empty'],a:2,
+  e:'SQLITE_DONE is the successful end of the result set. Treating it as an error is a common beginner mistake.'},
+ {q:'You store the pointer from sqlite3_column_text and print it after the loop ends. What happens?',
+  o:['It prints fine','It prints the last row twice','The pointer is no longer valid','SQLite copies it for you'],a:2,
+  e:'That memory belongs to the statement and is reused on the next step and released on finalize. Copy the string while the row is still current.'},
+ {q:'How many rows does one call to sqlite3_step produce?',
+  o:['All of them at once','Exactly one','As many as fit in memory','None — prepare does that'],a:1,
+  e:'One step, one row. That is why results stream through a loop instead of arriving as an array.'}
+];
+var quizEl=document.getElementById('quiz');
+QUIZ.forEach(function(q,qi){
+  var d=document.createElement('div'); d.className='q';
+  var h='<p>'+q.q+'</p>';
+  q.o.forEach(function(o,oi){h+='<button class="opt" data-q="'+qi+'" data-o="'+oi+'">'+o+'</button>';});
+  h+='<div class="exp" id="e'+qi+'">'+q.e+'</div>';
+  d.innerHTML=h; quizEl.appendChild(d);
+});
+quizEl.addEventListener('click',function(ev){
+  var b=ev.target.closest('.opt'); if(!b)return;
+  var qi=+b.dataset.q, oi=+b.dataset.o, box=b.parentNode;
+  box.querySelectorAll('.opt').forEach(function(x){x.className='opt';});
+  b.className='opt '+(oi===QUIZ[qi].a?'right':'wrong');
+  if(oi!==QUIZ[qi].a)box.querySelectorAll('.opt')[QUIZ[qi].a].className='opt right';
+  document.getElementById('e'+qi).className='exp show';
+});
+
+render();
+</script>
+</body>
+</html>
