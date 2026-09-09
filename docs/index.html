@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Topics covered</title>
+<style>
+  :root{
+    --bg:#f6f7f9;
+    --card:#ffffff;
+    --ink:#1f2430;
+    --ink-dim:#6b7280;
+    --line:#e3e6ea;
+    --accent:#2f6feb;
+    --accent-ink:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;
+    padding:48px 20px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  header{margin-bottom:36px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  header p{margin:0;color:var(--ink-dim)}
+
+  section{margin-top:36px}
+  h2{
+    font-size:13px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--ink-dim);margin:0 0 16px;font-weight:600;
+  }
+
+  .topic{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 20px;
+    margin-bottom:16px;
+  }
+  .topic h3{font-size:17px;margin:0 0 12px;font-weight:600}
+  .topic p.desc{margin:-6px 0 12px;color:var(--ink-dim);font-size:14px}
+
+  .versions{display:flex;flex-wrap:wrap;gap:10px}
+  .versions a{
+    display:inline-block;
+    padding:8px 16px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fbfcfd;
+    color:var(--ink);
+    text-decoration:none;
+    font-size:14px;
+    transition:background .15s ease,border-color .15s ease,color .15s ease;
+  }
+  .versions a:hover{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--accent-ink);
+  }
+
+  .empty{color:var(--ink-dim);font-size:14px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Topics covered</h1>
+    <p>A running index of what we have worked through. Newest first.</p>
+  </header>
+
+  <section>
+    <h2>Today</h2>
+
+    <div class="topic">
+      <h3>DNS resolution — mail.zoho.in</h3>
+      <p class="desc">How a resolver walks from the root down to an answer for mail.zoho.in.</p>
+      <div class="versions">
+        <a href="dns-resolution-mail-zoho-in-01/index.html">Version 1</a>
+        <a href="dns-resolution-mail-zoho-in-02/index.html">Version 2</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Earlier</h2>
+    <p class="empty">Nothing here yet.</p>
+  </section>
+</div>
+</body>
+</html>
