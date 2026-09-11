@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setting Omarchy branding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#faf6ef; --ink:#2b2622; --muted:#6f675e;
+  --rust:#b8430a; --teal:#14746f; --gold:#a97b12;
+  --line:rgba(43,38,34,.14); --line2:rgba(43,38,34,.07);
+  --paper:#fffdf9;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--cream); color:var(--ink);
+  font-family:"Inter Tight",system-ui,sans-serif; font-size:16px; line-height:1.6;
+  background-image:radial-gradient(rgba(43,38,34,.055) 1px, transparent 1px);
+  background-size:4px 4px;
+}
+.wrap{max-width:760px;margin:0 auto;padding:40px 22px 80px}
+header{margin-bottom:34px;border-bottom:1px solid var(--line);padding-bottom:22px}
+h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(26px,4.4vw,38px);line-height:1.14;margin:0 0 10px;letter-spacing:-.01em}
+.sub{color:var(--muted);max-width:62ch;margin:0}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:2px;margin-bottom:22px}
+.panel h2{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;color:var(--muted);
+  margin:0;padding:9px 14px;border-bottom:1px solid var(--line2);letter-spacing:.04em}
+.panel .body{padding:12px 14px}
+
+.term{background:#2b2622;color:#f3ece1;font-family:"JetBrains Mono",monospace;font-size:13px;
+  padding:14px 16px;border-radius:2px;line-height:2}
+.term .p{color:#8c8478;margin-right:6px}
+.term .c{color:#f3ece1}
+
+h3.sec{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px;margin:44px 0 14px}
+.rules{border-top:1px solid var(--line);padding-top:6px}
+.rule{display:grid;grid-template-columns:230px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--line2)}
+@media(max-width:640px){.rule{grid-template-columns:1fr;gap:4px}}
+.rule .c{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--rust)}
+.rule .d{color:var(--ink);font-size:15px}
+.rule .d code{font-family:"JetBrains Mono",monospace;font-size:.88em;background:rgba(43,38,34,.06);padding:1px 4px}
+
+.key{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;
+  padding:3px 8px;border:1px solid var(--line);border-radius:3px;background:var(--paper);color:var(--ink)}
+
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Setting the Omarchy screensaver branding</h1>
+  <p class="sub">Install figlet, render "AI Karyashala" as an ASCII banner into Omarchy's branding folder, then trigger the screensaver to see it applied.</p>
+</header>
+
+<div class="panel">
+  <h2>terminal</h2>
+  <div class="body" style="padding:0">
+    <div class="term">
+      <div><span class="p">$</span><span class="c">cd ~/.config/omarchy/branding</span></div>
+      <div><span class="p">$</span><span class="c">sudo pacman -Sy figlet</span></div>
+      <div><span class="p">$</span><span class="c">figlet -f slant "AI Karyashala" &gt; screensaver.txt</span></div>
+    </div>
+  </div>
+</div>
+
+<h3 class="sec">The steps</h3>
+<div class="rules">
+  <div class="rule">
+    <div class="c">cd ~/.config/omarchy/branding</div>
+    <div class="d">Move into Omarchy's branding directory — this is where screensaver text and other identity assets live.</div>
+  </div>
+  <div class="rule">
+    <div class="c">sudo pacman -Sy figlet</div>
+    <div class="d">Refresh the pacman package index and install <code>figlet</code>, the ASCII-art banner generator.</div>
+  </div>
+  <div class="rule">
+    <div class="c">figlet -f slant "AI Karyashala" &gt; screensaver.txt</div>
+    <div class="d">Render "AI Karyashala" in the <code>slant</code> font and write it to <code>screensaver.txt</code>, the file Omarchy reads for the screensaver banner.</div>
+  </div>
+  <div class="rule">
+    <div class="c"><span class="key">Super</span> + <span class="key">Esc</span> + <span class="key">Enter</span></div>
+    <div class="d">Omarchy's shortcut to lock the screen, triggering the screensaver so you can preview the new branding immediately.</div>
+  </div>
+</div>
+
+<footer>Built for AI Karyashala.</footer>
+</div>
+</body>
+</html>
